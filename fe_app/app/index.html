@@ -1,0 +1,110 @@
+<html>
+
+<head>
+    <script src="js/api-config.js" type="text/javascript"></script>
+</head>
+
+<body>
+Signed Image Upload to Cloudinary w/ VanillaJS 
+
+<br/><br/>
+
+<table>
+
+</table>
+Upload Form | <a href="gallery.html">Gallery</a>
+
+
+<form id="form">
+    <input type="file" name="file" id="file" />
+</form>
+<br/>
+Image will be submitted after it is selected.
+
+<script>
+
+    const callbackFn2 = (file) => {
+        return  data =>{
+            
+            var formData = new FormData();
+            formData.append('file', file);
+            formData.append('timestamp', data.timestamp);
+            formData.append('api_key', cloudinary_apikey);
+            formData.append('signature', data.signature);
+            formData.append('source', data.source);
+            formData.append('folder', data.folder);
+
+            fetch('https://api.cloudinary.com/v1_1/' + cloudinary_cloudname + '/image/upload', {
+                body: formData,
+                method: 'post',
+            })
+            .then((resp)=>resp.json())
+            .then(uploadCallbackFn);
+
+        }
+
+        function uploadCallbackFn (returnedData) {
+            // console.log(returnedData);
+            // console.log(returnedData.asset_id);
+
+            const reqData = {
+                asset_id: returnedData.asset_id,
+                public_id: returnedData.public_id
+            };
+
+            fetch(our_api + '/signatures/processUpload/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                redirect: 'follow', // manual, *follow, error
+                referrerPolicy: 'no-referrer', // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+                body: JSON.stringify(reqData)
+            })
+            .then((resp)=>resp.json())
+            .then( (data)=>{
+console.log(data);
+                alert('image uploaded');
+                
+            });
+        }
+
+        // test callback
+        function uploadCallbackFn2 (returnData) {
+            console.log('ok');
+            console.log(returnData);
+        };
+        
+    }
+        
+
+    const fileInput = document.getElementById('file');
+    fileInput.addEventListener('change', fileChange );
+
+    function fileChange (e) {
+        e.preventDefault();
+
+        // only getting first file
+        const myFile = this.files[0];
+
+        fetch(our_api + '/signatures/new')
+        .then( (resp)=>resp.json() )
+        .then( callbackFn2(myFile) );
+    };
+
+
+  
+    function getBase64(file) {
+        var reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = function () {
+            console.log(reader.result);
+        };
+        reader.onerror = function (error) {
+            console.log('Error: ', error);
+        };
+    }
+
+</script>
+</body>
+</html>

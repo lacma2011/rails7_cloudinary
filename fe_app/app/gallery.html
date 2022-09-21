@@ -1,0 +1,70 @@
+<html>
+
+<head>
+    <script src="js/api-config.js" type="text/javascript"></script>
+</head>
+
+<body>
+Signed Image Upload to Cloudinary w/ VanillaJS 
+
+<br/><br/>
+
+<table>
+    
+</table>
+<a href="index.html">Upload Form</a> | Gallery
+
+
+<div id="gallery"></div>
+
+<script>
+
+    fetch(our_api + '/images/', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        redirect: 'follow', // manual, *follow, error
+        referrerPolicy: 'no-referrer', // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+    })
+    .then((resp)=>resp.json())
+    .then( (data)=>{
+
+
+    var mytable = document.createElement("table");
+    var mytablebody = document.createElement("tbody");
+
+    
+          
+
+          
+
+
+        Object.entries(data).forEach(([key, value]) => {
+            let mycurrent_row = document.createElement("tr");
+
+            // public ID
+            let img = new Image();
+            img.src = value.secure_url;
+            let td2 = document.createElement('td')
+            td2.appendChild(img);
+            mycurrent_row.appendChild(td2);
+
+            // pic
+            let td1 = document.createElement('td')
+            td1.appendChild(document.createTextNode(value.public_id));
+            mycurrent_row.appendChild(td1);
+
+            mytablebody.appendChild(mycurrent_row);            
+        });
+
+        
+        mytable.appendChild(mytablebody)
+        
+        const gallery = document.getElementById('gallery');
+        gallery.appendChild(mytable)
+    });
+
+</script>
+</body>
+</html>

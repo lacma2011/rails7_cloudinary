@@ -1,0 +1,13 @@
+{
+  "devDependencies": {
+    "serve": "^13.0.2"
+  },
+  "name": "src",
+  "version": "1.0.0",
+  "license": "MIT",
+  "dependencies": {
+    "blueimp-file-upload": "^10.32.0",
+    "cloudinary-jquery-file-upload": "^2.12.3",
+    "jquery": "^3.6.0"
+  }
+}

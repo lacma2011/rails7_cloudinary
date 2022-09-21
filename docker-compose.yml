@@ -1,0 +1,31 @@
+version: '3'
+services:
+      
+  backend:
+    image: cloudinary_rails3
+    ports:
+     - "3001:3001"
+    stdin_open: true
+    environment:
+      - PORT=3001
+      #needed for CORS
+      - FRONTEND_HOST=localhost:3003
+      - CLOUDINARY_NAME=${CLOUDINARY_NAME}
+      - CLOUDINARY_KEY=${CLOUDINARY_KEY}
+      - CLOUDINARY_SECRET=${CLOUDINARY_SECRET}
+    working_dir: /usr/src
+    volumes: 
+      - ${PWD}/rails:/usr/src
+
+  frontend:
+    image: cloudinary_fe3
+    restart: always
+    working_dir: /usr/src
+    ports:
+      - "3003:3003"
+    volumes:
+      - ${PWD}/fe_app:/usr/src
+    stdin_open: true
+    environment:
+      # will start yarn serve with this port
+      - PORT=3003

@@ -1,0 +1,38 @@
+FROM ruby
+
+
+ARG UNAME=devuser
+ARG UID=1000
+ARG GID=1000
+RUN groupadd -g $GID -o $UNAME
+RUN useradd -m -u $UID -g $GID -o -s /bin/bash $UNAME
+
+
+ENV RAILS_ENV=development
+# Set the workdir inside the container
+WORKDIR /usr/src
+
+# Set the gemfile and install
+COPY ./rails/Gemfile* ./
+RUN bundle config set --local without 'production'
+RUN bundle install
+
+
+# For specific apps, mine that I'm working on now I will use webpacker
+RUN gem install rails
+
+# for db client
+RUN apt update -y
+RUN apt install sqlite3 -y
+
+
+#to avoid overwrites from volume bind with docker-compose, copy into root folder
+COPY ./docker/entrypoints/rails.sh /tmp/docker-rails-entrypoint.sh
+
+
+RUN ["chmod", "+x", "/tmp/docker-rails-entrypoint.sh"]
+
+ENTRYPOINT ["/tmp/docker-rails-entrypoint.sh"]
+
+
+USER $UNAME

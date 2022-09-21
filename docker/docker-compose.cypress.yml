@@ -1,0 +1,23 @@
+version: '3'
+services:
+
+  cypress_gui:
+    image: cloudinary_cy3
+    privileged: true
+    network_mode: host
+    working_dir: /e2e
+    stdin_open: true
+    environment:
+      - CYPRESS_baseUrl=http://localhost:3003/
+      - DISPLAY=unix${DISPLAY}
+    #entrypoint:
+    #  - cypress
+    #  - open
+    #  - --project
+    #  - .
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket
+      - ${PWD}/cypress:/e2e
+      #careful now
+      - /var/run/docker.sock:/var/run/docker.sock
