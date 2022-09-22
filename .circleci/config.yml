@@ -65,6 +65,10 @@ jobs:
     working_directory: /usr/src
     docker:
       - image: docker:17.05.0-ce-git
+        environment:
+          PORT: 3001
+          #for env var in rails rails/config/initializers/cors.rb
+          FRONTEND_HOST: ${FRONTEND_HOST}
     steps:
       - checkout
       - setup_remote_docker
@@ -117,7 +121,7 @@ jobs:
 
             # keep it running
             echo "step 1!"
-            docker run -d -e MY_COMMAND="tail -f /dev/null" --entrypoint /tmp/docker-test-entrypoint.sh --name=cloudinary_rails4 cloudinary_rails4
+            docker run -d -e MY_COMMAND="tail -f /dev/null" -e FRONTEND_HOST --entrypoint /tmp/docker-test-entrypoint.sh --name=cloudinary_rails4 cloudinary_rails4
 
             echo "step 2!"
             docker ps -q -f "name=cloudinary_rails4"
@@ -213,7 +217,7 @@ jobs:
         environment:
           #MY_COMMAND: tail -f /dev/null
           PORT: 3001
-          FRONTEND_HOST: localhost:3003
+          FRONTEND_HOST: ${FRONTEND_HOST}
 
     steps:
       - checkout
@@ -255,7 +259,7 @@ jobs:
             echo "command=${CMD}"
             eval $CMD
 
-            echo "results of rails API should show if successful!"
+            echo "\n\n^^^Results of rails API should show if successful!"
 
 workflows:
   say-hello-workflow:
