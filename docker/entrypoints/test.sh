@@ -1,6 +1,4 @@
 #!/bin/bash
-ls -alF /app
-
 ls -alF /tmp
 
-ls -alF /home/circleci/project
+bash -c "$MY_COMMAND"

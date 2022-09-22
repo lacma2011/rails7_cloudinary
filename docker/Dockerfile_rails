@@ -13,7 +13,9 @@ ENV RAILS_ENV=development
 WORKDIR /usr/src
 
 # Set the gemfile and install
-COPY ./rails/Gemfile* ./
+#
+# since we cant use bind mounts for circleci images
+COPY ./rails .
 RUN bundle config set --local without 'production'
 RUN bundle install
 
@@ -33,6 +35,11 @@ COPY ./docker/entrypoints/rails.sh /tmp/docker-rails-entrypoint.sh
 RUN ["chmod", "+x", "/tmp/docker-rails-entrypoint.sh"]
 
 ENTRYPOINT ["/tmp/docker-rails-entrypoint.sh"]
+
+
+
+COPY ./docker/entrypoints/test.sh /tmp/docker-test-entrypoint.sh
+RUN ["chmod", "+x", "/tmp/docker-test-entrypoint.sh"]
 
 
 USER $UNAME
