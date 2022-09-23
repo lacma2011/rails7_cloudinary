@@ -1,11 +1,11 @@
 development:
-  cloud_name: <%= ENV["CLOUDINARY_NAME"] %>
-  api_key: <%= ENV["CLOUDINARY_KEY"] %>
-  api_secret: <%= ENV["CLOUDINARY_SECRET"] %>
+  cloud_name: "dbz4fttfa"
+  api_key: "683659755124933"
+  api_secret: "AHyTLsjktZig6isMZROEg3VUQhg"
   secure: true
 
 production:
-  cloud_name: <%= ENV["CLOUDINARY_NAME"] %>
-  api_key: <%= ENV["CLOUDINARY_KEY"] %>
-  api_secret: <%= ENV["CLOUDINARY_SECRET"] %>
+  cloud_name: "dbz4fttfa"
+  api_key: "683659755124933"
+  api_secret: "AHyTLsjktZig6isMZROEg3VUQhg"
   secure: true
