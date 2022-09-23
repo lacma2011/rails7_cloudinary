@@ -6,7 +6,8 @@ jobs:
       - image: cimg/ruby:3.1.1
     steps:
       - checkout
-      - setup_remote_docker
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           name: make user
           command: |
@@ -71,7 +72,8 @@ jobs:
           FRONTEND_HOST: ${FRONTEND_HOST}
     steps:
       - checkout
-      - setup_remote_docker
+      - setup_remote_docker:
+          docker_layer_caching: true
       #- run: docker volume prune -f
       ###############################################
       ### load cache ####
@@ -168,7 +170,8 @@ jobs:
       - image: docker:17.05.0-ce-git
     steps:
       - checkout
-      - setup_remote_docker
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           name: Build frontend Docker image
           command: |
@@ -212,7 +215,8 @@ jobs:
       - image: cimg/base:stable
     steps:
       - checkout
-      - setup_remote_docker
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           name: Build cypress Docker image
           command: |
@@ -227,7 +231,8 @@ jobs:
       - image: docker:17.05.0-ce-git
     steps:
       - checkout
-      - setup_remote_docker
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           name: Build cypress Docker image
           command: |
@@ -290,8 +295,8 @@ jobs:
 
     steps:
       - checkout
-      - setup_remote_docker
-      #- run: docker volume prune -f  #perm error!
+      - setup_remote_docker:
+          docker_layer_caching: true #- run: docker volume prune -f  #perm error!
       - run:
           name: Wait for rails
           command: |
