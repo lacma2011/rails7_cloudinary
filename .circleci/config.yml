@@ -354,14 +354,15 @@ jobs:
 
             cypress run --project /usr/src/
 
-  build:
+workflows:
+  build-and-test:
     jobs:
       - build-rails
       - build-fe
       - build-cypress
-  test:
-    jobs:
       - run-tests:
           requires:
-            - build
+            - build-rails
+            - build-fe
+            - build-cypress
   version: 2.1
