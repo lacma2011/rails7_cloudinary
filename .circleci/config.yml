@@ -204,11 +204,28 @@ jobs:
             docker stop $CONTAINER_ID
             docker rm $CONTAINER_ID
 
+  build-cypress:
+    #working_directory: /usr/src
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Build cypress Docker image
+          command: |
+            MY_ID=$(id -u)
+            MY_GID=$(getent group docker | cut -d: -f3)
+
+            echo "CYPRESS CONTAINER ID: ${MY_ID} GROUP_ID: ${MY_GID}"
+            sudo docker build --build-arg UID=${MY_ID} --build-arg GID=${MY_GID} -f docker/Dockerfile_cypress -t cloudinary_cy4 .
+
   runme:
     docker:
       - image: cimg/base:stable
         environment:
           RAILS_PORT: 3001
+          FRONTEND_PORT: 3003
 
       - image: cloudinary_rails4:step1
         # if we wanted to override the default entrypoint which starts rails server
@@ -218,6 +235,20 @@ jobs:
           #MY_COMMAND: tail -f /dev/null
           PORT: 3001
           FRONTEND_HOST: ${FRONTEND_HOST}
+
+      - image: cloudinary_fe4:step1
+        # if we wanted to override the default entrypoint which starts rails server
+        entrypoint: /tmp/docker-fe-entrypoint.sh
+        name: cloudinary_fe4
+        environment:
+          #MY_COMMAND: tail -f /dev/null
+          PORT: 3003
+
+      # - image: cloudinary_cy4
+      #   # if we wanted to override the default entrypoint which starts rails server
+      #   entrypoint: /tmp/docker-cypress-bash-entrypoint.sh
+      #   name: cloudinary_cy4
+      #   #environment:
 
     steps:
       - checkout
@@ -242,6 +273,12 @@ jobs:
             dockerize -wait http://$RAILS_IP:${RAILS_PORT} -timeout 1m
 
       - run:
+          name: Wait for frontend
+          command: |
+            FRONTEND_IP=$(sudo docker inspect $(sudo docker ps -q -f "label=frontend") | grep -Po '"IPAddress": *\K"[^"]*"' | tail -1 | sed 's/"//g')
+            dockerize -wait http://$FRONTEND_IP:${FRONTEND_PORT} -timeout 1m
+
+      - run:
           name: check rails running with curl
           # TODO: somehow loading this env didn't work? FRONTEND_HOST=localhost:3003
           command: |
@@ -260,11 +297,47 @@ jobs:
             eval $CMD
 
             echo "\n\n^^^Results of rails API should show if successful!"
+      - run:
+          name: check frontend running with curl
+          # TODO: somehow loading this env didn't work? FRONTEND_HOST=localhost:3003
+          command: |
+            FRONTEND_IP=$(sudo docker inspect $(sudo docker ps -q -f "label=frontend") | grep -Po '"IPAddress": *\K"[^"]*"' | tail -1 | sed 's/"//g')
+            echo "frontend IP: $FRONTEND_IP"
+
+            CMD="curl -v http://${FRONTEND_IP}:${FRONTEND_PORT}/"
+            echo "command=${CMD}"
+            eval $CMD
+
+            echo "\n\n^^^Results of frontend site should show if successful!"
+
+      - run:
+          name: cypress run
+          # TODO: somehow loading this env didn't work? FRONTEND_HOST=localhost:3003
+          command: |
+            FRONTEND_IP=$(sudo docker inspect $(sudo docker ps -q -f "label=frontend") | grep -Po '"IPAddress": *\K"[^"]*"' | tail -1 | sed 's/"//g')
+            echo "frontend IP: $FRONTEND_IP"
+
+            BASE_URL="http://${FRONTEND_IP}:${FRONTEND_PORT}"
+            echo "frontend IP: $BASE_URL"
+
+            MY_ID=$(id -u)
+            MY_GID=$(getent group docker | cut -d: -f3)
+
+            echo "JOB CONTAINER ID: ${MY_ID} GROUP_ID: ${MY_GID}"
+
+            tail -f /dev/null
+
+            # not adding option so we run as root: -u ${MY_ID}:${MY_GID}  
+            CMD="sudo docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --env CYPRESS_baseUrl=${BASE_URL}  --env MY_COMMAND='cypress run --project .' --entrypoint /tmp/docker-test-entrypoint.sh cloudinary_cy4"
+            echo $CMD
+
+            eval $CMD
 
 workflows:
   say-hello-workflow:
     jobs:
       - build
       - build-fe
+      - build-cypress
       - runme
   version: 2.1
