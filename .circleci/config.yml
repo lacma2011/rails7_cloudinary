@@ -1,0 +1,364 @@
+version: 2.1
+jobs:
+  build-v1:
+    # working_directory: /app
+    docker:
+      - image: cimg/ruby:3.1.1
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: make user
+          command: |
+            # sudo mkdir /app
+            # sudo chmod 777 /app
+            # cp -R ./rails /app 
+            UNAME=devuser
+            USERID=$(id -u)
+            GROUPID=$(id -g)
+            sudo groupadd -g $GROUPID -o $UNAME
+            sudo useradd -m -u $USERID -g $GROUPID -o -s /bin/bash $UNAME
+      - run:
+          name: check
+          command: |
+            whoami
+            id devuser
+      - run:
+          name: view
+          command: |
+            # cd /app/rails
+            ls -alF rails/
+      - run:
+          name: install
+          command: |
+            # cd /app/rails
+            cd rails
+            RAILS_ENV=development
+            bundle config set --local without 'production'
+            bundle install
+            gem install rails -v 7.0.2.3
+            sudo apt update -y
+            sudo apt install sqlite3 -y
+      - run:
+          name: entrypoint
+          command: |
+            cp ./docker/entrypoints/rails.sh /tmp/docker-rails-entrypoint.sh
+            chmod +x /tmp/docker-rails-entrypoint.sh
+      - run:
+          name: db load
+          # TODO: somehow loading this env didn't work? FRONTEND_HOST=localhost:3003
+          command: |
+            # cd /app/rails
+            cd rails/
+            RAILS_ENV=development
+            bundle exec rake db:schema:load
+      - run:
+          name: fixtures load
+          # TODO: somehow loading this env didn't work? FRONTEND_HOST=localhost:3003
+          command: |
+            # cd /app/rails
+            cd rails/
+            RAILS_ENV=development
+            bundle exec rake db:fixtures:load
+
+  build-rails:
+    working_directory: /usr/src
+    docker:
+      - image: docker:17.05.0-ce-git
+        environment:
+          PORT: 3001
+          #for env var in rails rails/config/initializers/cors.rb
+          FRONTEND_HOST: ${FRONTEND_HOST}
+    steps:
+      - checkout
+      - setup_remote_docker
+      #- run: docker volume prune -f
+      ###############################################
+      ### load cache ####
+      # - restore_cache:
+      #     keys:
+      #       - v1-{{ .Branch }}
+      #     paths:
+      #       - /caches/app.tar
+      # - run:
+      #     name: Load Docker image layer cache
+      #     command: |
+      #       set +o pipefail
+      #       docker load -i /caches/app.tar | true
+      ##################################################
+      - run: docker image ls
+
+      - run:
+          name: Build application Docker image
+          command: |
+            ls -alF docker/entrypoints/
+            docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -f docker/Dockerfile_rails -t cloudinary_rails4 .
+
+            #^ contents of rails/ wlll be copied to /usr/src
+
+            ###docker build --cache-from=app --build-arg UID=$(id -u) --build-arg GID=$(id -g) -f docker/Dockerfile_rails -t cloudinary_rails4 .
+      #################################################
+      ### save cache ####
+      # - run:
+      #     name: Save Docker image layer cache
+      #     command: |
+      #       mkdir -p /caches
+      #       docker save -o /caches/app.tar app
+      # - save_cache:
+      #     key: v1-{{ .Branch }}-{{ epoch }}
+      #     paths:
+      #       - /caches/app.tar
+      ##############################################
+      - run:
+          name: db setup
+          # TODO: somehow loading this env didn't work? FRONTEND_HOST=localhost:3003
+          command: |
+            # cd /app/rails
+            cd rails/
+            RAILS_ENV=development
+            #docker run --rm -e MY_COMMAND="pwd" --entrypoint /tmp/docker-test-entrypoint.sh cloudinary_rails4
+            #docker run --rm -e MY_COMMAND="ls -alF" --entrypoint /tmp/docker-test-entrypoint.sh cloudinary_rails4
+
+            # keep it running
+            echo "step 1!"
+            docker run -d -e MY_COMMAND="tail -f /dev/null" -e FRONTEND_HOST --entrypoint /tmp/docker-test-entrypoint.sh --name=cloudinary_rails4 cloudinary_rails4
+
+            echo "step 2!"
+            docker ps -q -f "name=cloudinary_rails4"
+            echo '---'
+            docker ps -a
+
+            echo "step 2a!"
+            CONTAINER_ID=$(docker ps -q -f "name=cloudinary_rails4")
+            echo $CONTAINER_ID
+
+            CMD="docker exec $CONTAINER_ID bash -c 'bundle exec rake db:schema:load'"
+            echo $CMD
+            eval $CMD
+
+            CMD="docker exec $CONTAINER_ID bash -c 'bundle exec rake db:fixtures:load'"
+            echo $CMD
+            eval $CMD
+
+            echo "step 2b!"
+            CMD="docker commit --change 'LABEL rails=rails' $CONTAINER_ID cloudinary_rails4:step1"
+            echo $CMD
+            eval $CMD
+
+            echo "step 3!"
+            docker stop $CONTAINER_ID
+            docker rm $CONTAINER_ID
+
+      # no point persisting these since our container cannot volume bind the project folder
+      # - persist_to_workspace:
+      #     # Must be an absolute path, or relative path from working_directory. This is a directory on the container which is
+      #     # taken to be the root directory of the workspace.
+      #     root: rails
+      #     # Must be relative path from root
+      #     paths:
+      #       - tmp
+      #       - .bundle
+      #       - db
+      #       - log
+      #       - storage
+
+  build-fe:
+    working_directory: /usr/src
+    docker:
+      - image: docker:17.05.0-ce-git
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Build frontend Docker image
+          command: |
+            docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -f docker/Dockerfile_fe -t cloudinary_fe4 .
+
+          # ^contents of fe_app/ wlll be copied to /usr/src
+
+      - run:
+          name: yarn load
+          command: |
+            # keep it running
+            docker run -d -e MY_COMMAND="tail -f /dev/null" --entrypoint /tmp/docker-test-entrypoint.sh --name=cloudinary_fe4 cloudinary_fe4
+
+            echo "step 2!"
+            docker ps -q -f "name=cloudinary_fe4"
+            echo '---'
+            docker ps -a
+
+            echo "step 2a!"
+            CONTAINER_ID=$(docker ps -q -f "name=cloudinary_fe4")
+            echo $CONTAINER_ID
+
+            CMD="docker exec $CONTAINER_ID bash -c 'yarn --cwd /usr/src/ install'"
+            echo $CMD
+            eval $CMD
+
+            echo "step 2b!"
+            CMD="docker commit --change 'LABEL frontend=frontend' $CONTAINER_ID cloudinary_fe4:step1"
+            echo $CMD
+            eval $CMD
+
+            echo "step 3!"
+            docker stop $CONTAINER_ID
+            docker rm $CONTAINER_ID
+
+  build-cypress-old:
+    #THIS ONE USES sudo ... ugh
+    #
+    #working_directory: /usr/src
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Build cypress Docker image
+          command: |
+            MY_ID=$(id -u)
+            MY_GID=$(getent group docker | cut -d: -f3)
+
+            echo "CYPRESS CONTAINER ID: ${MY_ID} GROUP_ID: ${MY_GID}"
+            sudo docker build --build-arg UID=${MY_ID} --build-arg GID=${MY_GID} -f docker/Dockerfile_cypress -t cloudinary_cy4 .
+  build-cypress:
+    #working_directory: /usr/src
+    docker:
+      - image: docker:17.05.0-ce-git
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Build cypress Docker image
+          command: |
+            apk --no-cache add ca-certificates wget
+            wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub
+            wget https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.28-r0/glibc-2.28-r0.apk
+            apk add glibc-2.28-r0.apk
+
+            #ls -alF /var/run/docker.sock
+            #whoami
+            #getent group docker
+            #MY_ID=$(id -u)
+            #MY_GID=$(getent group docker | cut -d: -f3)
+
+            # oh well, just do root
+            MY_ID=$(id -u)
+            MY_GID=$(id -g)
+
+            echo "CYPRESS CONTAINER ID: ${MY_ID} GROUP_ID: ${MY_GID}"
+            docker build --build-arg UID=${MY_ID} --build-arg GID=${MY_GID} -f docker/Dockerfile_cypress -t cloudinary_cy4 .
+
+  run-tests:
+    docker:
+      - image: cloudinary_cy4
+        environment:
+          RAILS_PORT: 3001
+          FRONTEND_PORT: 3003
+
+          #secrets
+          CLOUDINARY_NAME: ${CLOUDINARY_NAME}
+          CLOUDINARY_KEY: ${CLOUDINARY_KEY}
+          CLOUDINARY_SECRET: ${CLOUDINARY_SECRET}
+
+      - image: cloudinary_rails4:step1
+        # if we wanted to override the default entrypoint which starts rails server
+        entrypoint: /tmp/docker-rails-entrypoint.sh
+        name: cloudinary_rails4
+        environment:
+          #MY_COMMAND: tail -f /dev/null
+          PORT: 3001
+          FRONTEND_HOST: ${FRONTEND_HOST} #not usable
+          #secrets
+          CLOUDINARY_NAME: ${CLOUDINARY_NAME}
+          CLOUDINARY_KEY: ${CLOUDINARY_KEY}
+          CLOUDINARY_SECRET: ${CLOUDINARY_SECRET}
+
+      - image: cloudinary_fe4:step1
+        # if we wanted to override the default entrypoint which starts rails server
+        entrypoint: /tmp/docker-fe-entrypoint.sh
+        name: cloudinary_fe4
+        environment:
+          #MY_COMMAND: tail -f /dev/null
+          PORT: 3003
+
+      # - image: cloudinary_cy4
+      #   # if we wanted to override the default entrypoint which starts rails server
+      #   entrypoint: /tmp/docker-cypress-bash-entrypoint.sh
+      #   name: cloudinary_cy4
+      #   #environment:
+
+    steps:
+      - checkout
+      - setup_remote_docker
+      #- run: docker volume prune -f  #perm error!
+      - run:
+          name: Wait for rails
+          command: |
+            RAILS_IP=$(docker inspect $(docker ps -q -f "label=rails") | grep -Po '"IPAddress": *\K"[^"]*"' | tail -1 | sed 's/"//g')
+            dockerize -wait http://$RAILS_IP:${RAILS_PORT} -timeout 1m
+
+      - run:
+          name: Wait for frontend
+          command: |
+            FRONTEND_IP=$(docker inspect $(docker ps -q -f "label=frontend") | grep -Po '"IPAddress": *\K"[^"]*"' | tail -1 | sed 's/"//g')
+            dockerize -wait http://$FRONTEND_IP:${FRONTEND_PORT} -timeout 1m
+
+      - run:
+          name: check rails running with curl
+          # TODO: somehow loading this env didn't work? FRONTEND_HOST=localhost:3003
+          command: |
+            RAILS_IP=$(docker inspect $(docker ps -q -f "label=rails") | grep -Po '"IPAddress": *\K"[^"]*"' | tail -1 | sed 's/"//g')
+            echo "rails IP: $RAILS_IP"
+
+            CMD="curl -v http://${RAILS_IP}:${RAILS_PORT}/people"
+            echo "command=${CMD}"
+            eval $CMD
+
+            echo "\n\n^^^Results of rails API should show if successful!"
+      - run:
+          name: check frontend running with curl
+          # TODO: somehow loading this env didn't work? FRONTEND_HOST=localhost:3003
+          command: |
+            FRONTEND_IP=$(docker inspect $(docker ps -q -f "label=frontend") | grep -Po '"IPAddress": *\K"[^"]*"' | tail -1 | sed 's/"//g')
+            echo "frontend IP: $FRONTEND_IP"
+
+            CMD="curl -v http://${FRONTEND_IP}:${FRONTEND_PORT}/"
+            echo "command=${CMD}"
+            eval $CMD
+
+            echo "\n\n^^^Results of frontend site should show if successful!"
+
+      - run:
+          name: cypress run
+          # TODO: somehow loading this env didn't work? FRONTEND_HOST=localhost:3003
+          command: |
+            FRONTEND_IP=$(docker inspect $(docker ps -q -f "label=frontend") | grep -Po '"IPAddress": *\K"[^"]*"' | tail -1 | sed 's/"//g')
+            echo "frontend IP: $FRONTEND_IP"
+
+            RAILS_IP=$(docker inspect $(docker ps -q -f "label=rails") | grep -Po '"IPAddress": *\K"[^"]*"' | tail -1 | sed 's/"//g')
+            echo "rails IP: $RAILS_IP"
+
+            echo "${RAILS_IP} railsapi" >> /etc/hosts
+
+            cat /etc/hosts
+
+            export declare BASE_URL="http://${FRONTEND_IP}:${FRONTEND_PORT}"
+            export declare CYPRESS_BASE_URL="http://${FRONTEND_IP}:${FRONTEND_PORT}"            
+            echo "frontend IP: $BASE_URL"
+
+            echo "export declare BASE_URL=\"http://${FRONTEND_IP}:${FRONTEND_PORT}\""
+            echo "export declare CYPRESS_BASE_URL=\"http://${FRONTEND_IP}:${FRONTEND_PORT}\""            
+
+            #tail -f /dev/null
+
+            cypress run --project /usr/src/
+
+workflows:
+  say-hello-workflow:
+    jobs:
+      - build-rails
+      - build-fe
+      - build-cypress
+      - run-tests
+  version: 2.1

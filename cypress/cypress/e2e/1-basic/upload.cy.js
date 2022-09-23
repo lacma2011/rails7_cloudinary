@@ -15,15 +15,15 @@ describe("example to-do app", () => {
   beforeEach(() => {
     // reset rails db, clean uploads folder and restart server
     cy.exec(
-      'docker exec $(docker ps -q -f "name=backend") bundle exec rake db:schema:load'
+      'docker exec $(docker ps -q -f "label=rails") bundle exec rake db:schema:load'
     );
 
     cy.exec(
-      'docker exec $(docker ps -q -f "name=backend") bundle exec rake db:seed'
+      'docker exec $(docker ps -q -f "label=rails") bundle exec rake db:seed'
     );
 
     cy.exec(
-      'docker exec $(docker ps -q -f "name=backend") bundle exec rake clear_profiles_folder'
+      'docker exec $(docker ps -q -f "label=rails") bundle exec rake clear_profiles_folder'
     );
 
     //cy.exec('docker exec $(docker ps -q -f "name=rails") bundle exec pumactl restart');
@@ -34,7 +34,7 @@ describe("example to-do app", () => {
 
     cy.intercept({
       method: "POST",
-      url: "http://0.0.0.0:3001/signatures/processUpload/",
+      url: "http://railsapi:3001/signatures/processUpload/",
     }).as("upload");
 
     // upload image
@@ -48,7 +48,7 @@ describe("example to-do app", () => {
     const stub = cy.stub();
     cy.on("window:alert", stub);
 
-    cy.wait("@upload").then(() => {
+    cy.wait("@upload", { timeout: 20000 }).then(() => {
       expect(stub.getCall(0)).to.be.calledWith("image uploaded");
     });
 

@@ -10,6 +10,11 @@ RUN useradd -m -u $UID -g $GID -o -s /bin/bash $UNAME
 ENV NODE_ENV=development
 WORKDIR /usr/src
 
+# Set the yarn.lock and install packages
+#
+# since we cant use bind mounts for circleci images
+COPY ./fe_app .
+
 #to avoid overwrites from volume bind with docker-compose, copy into root folder
 COPY ./docker/entrypoints/fe.sh /tmp/docker-fe-entrypoint.sh
 
@@ -22,6 +27,10 @@ COPY ./docker/entrypoints/fe.sh /tmp/docker-fe-entrypoint.sh
 RUN ["chmod", "+x", "/tmp/docker-fe-entrypoint.sh"]
 
 ENTRYPOINT ["/tmp/docker-fe-entrypoint.sh"]
+
+COPY ./docker/entrypoints/test.sh /tmp/docker-test-entrypoint.sh
+RUN ["chmod", "+x", "/tmp/docker-test-entrypoint.sh"]
+
 
 
 USER $UNAME

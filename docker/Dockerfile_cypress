@@ -6,10 +6,36 @@ ARG GID=1000
 RUN groupadd -g $GID -o $UNAME
 RUN useradd -m -u $UID -g $GID -o -s /bin/bash $UNAME
 
+WORKDIR /usr/src
+
 #to avoid overwrites from volume bind with docker-compose, copy into root folder
 COPY ./docker/entrypoints/cypress_bash.sh /tmp/docker-cypress-bash-entrypoint.sh
 
 RUN ["chmod", "+x", "/tmp/docker-cypress-bash-entrypoint.sh"]
 
-USER $UNAME
 
+COPY ./docker/entrypoints/test.sh /tmp/docker-test-entrypoint.sh
+RUN ["chmod", "+x", "/tmp/docker-test-entrypoint.sh"]
+
+
+LABEL cypress=cypress
+
+#
+# for the pipeline
+#
+RUN apt update -y
+RUN apt upgrade -y
+RUN apt install curl -y
+
+ENV DOCKERIZE_VERSION=v0.3.0
+
+RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
+    && tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
+    && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
+
+
+# run as root, solve some problems binding to docker socket and the /usr/src folder being owned by root!
+#USER $UNAME
+
+
+COPY ./cypress .
