@@ -354,11 +354,14 @@ jobs:
 
             cypress run --project /usr/src/
 
-workflows:
-  say-hello-workflow:
+  build:
     jobs:
       - build-rails
       - build-fe
       - build-cypress
-      - run-tests
+  test:
+    jobs:
+      - run-tests:
+          requires:
+            - build
   version: 2.1
